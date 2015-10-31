@@ -1,9 +1,10 @@
 #!/usr/bin/php
 <?php
 
-error_reporting(E_STRICT);
+error_reporting(E_ALL|E_STRICT);
 
 function sys($cmd) {
+	fwrite(STDERR, "$ $cmd\n");
 	system($cmd, $status);
 	if( $status ) throw new Exception("Shell command failed with status $status");
 }
@@ -80,7 +81,7 @@ try {
 		sys("git init");
 		sys("git remote add origin ".escapeshellarg($sourceRepo));
 		sys("git fetch --all");
-		sys("git reset --hard $commit");
+		sys("git reset --hard $sourceCommit");
 	} finally {
 		chdir($oldDir);
 	}
@@ -99,8 +100,10 @@ try {
 	$success = true;
 } finally {
 	if( !$success ) {
+		fwrite(STDERR, "Stuff went wrong.  Cleaning up.");
 		system("rm -rf ".escapeshellarg($dir));
-		system("sudo -n rm ".escapeshellarg($vhostFile));
-		system("sudo -n rm ".escapeshellarg($vhostLink));
+		system("sudo -n rm -f ".escapeshellarg($vhostFile));
+		system("sudo -n rm -f ".escapeshellarg($vhostLink));
+		exit(1);
 	}
 }
