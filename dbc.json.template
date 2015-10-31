@@ -1,0 +1,8 @@
+{
+    "dbname": "{dbname}",
+    "host": "localhost",
+    "user": "{dbuser}",
+    "password": "{dbpassword}",
+    "driver": "pdo_pgsql",
+    "charset": "UTF-8"
+}
