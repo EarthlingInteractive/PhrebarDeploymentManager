@@ -9,19 +9,19 @@
         Require all granted
     </Directory>
 </VirtualHost>
-<VirtualHost *:443>
-    SSLEngine on
-    SSLCertificateFile /etc/apache2/ssl/ssl.crt
-    SSLCertificateKeyFile /etc/apache2/ssl/ssl.key
-    SetEnvIf User-Agent ".*MSIE.*" nokeepalive ssl-unclean-shutdown
-
-    ServerAdmin {server-admin}
-    ServerName {server-name}
-    
-    DocumentRoot {docroot}
-    <Directory {docroot}>
-        Options Indexes FollowSymLinks Includes
-        AllowOverride All
-        Require all granted
-    </Directory>
-</VirtualHost>
+#<VirtualHost *:443>
+#    SSLEngine on
+#    SSLCertificateFile /etc/apache2/ssl/ssl.crt
+#    SSLCertificateKeyFile /etc/apache2/ssl/ssl.key
+#    SetEnvIf User-Agent ".*MSIE.*" nokeepalive ssl-unclean-shutdown
+#     
+#    ServerAdmin {server-admin}
+#    ServerName {server-name}
+#    
+#    DocumentRoot {docroot}
+#    <Directory {docroot}>
+#        Options Indexes FollowSymLinks Includes
+#        AllowOverride All
+#        Require all granted
+#    </Directory>
+#</VirtualHost>

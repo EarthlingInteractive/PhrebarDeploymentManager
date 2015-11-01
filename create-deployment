@@ -38,7 +38,7 @@ for( $i=1; $i<count($argv); ++$i ) {
 }
 
 if( count($nonFlagArgs) < 3 ) {
-   fwrite(STDERR, "Usage: make-deployment <name> <source repo> <commit>\n");
+   fwrite(STDERR, "Usage: create-deployment <name> <source repo> <commit>\n");
    exit(1);
 }
 
@@ -49,10 +49,10 @@ $sourceCommit   = $nonFlagArgs[2];
 $domainPostfix = $config['hostname-postfix'];
 
 $hostname = "{$deploymentName}{$domainPostfix}";
-$dir = "deployments/{$deploymentName}";
+$dir = getcwd()."/deployments/{$deploymentName}";
 $docroot = "{$dir}/www";
-$vhostFile = "/etc/apache/sites-available/{$deploymentName}";
-$vhostLink = "/etc/apache/sites-enabled/001-{$deploymentName}";
+$vhostFile = "/etc/apache2/sites-available/{$deploymentName}.conf";
+$vhostLink = "/etc/apache2/sites-enabled/001-{$deploymentName}.conf";
 $dbname = $deploymentName;
 $dbuser = $deploymentName;
 $dbpassword = $deploymentName;
@@ -65,6 +65,8 @@ $vars = [
 	'dbpassword' => $dbpassword,
 	'vhost-file' => $vhostFile,
 	'vhost-link' => $vhostLink,
+	'server-name' => $hostname,
+	'server-admin' => 'ei-ci-admin@mailinator.com',
 ];
 
 if( file_exists($dir) ) {
@@ -86,12 +88,18 @@ try {
 		chdir($oldDir);
 	}
 	
-	rewriteFile('create-database.sql.template', "{$dir}/.create-database.sql", $args);
+	rewriteFile('create-database.sql.template', "{$dir}/.create-database.sql", $vars);
 	sys("sudo -u postgres psql <{$dir}/.create-database.sql");
 	
-	rewriteFile('dbc.json.template', "{$dir}/config/dbc.json", $args);
+	rewriteFile('dbc.json.template', "{$dir}/config/dbc.json", $vars);
+	
+	sys("make -C ".escapeshellarg($dir));
 	
 	rewriteFile('vhost.template', "{$dir}/.vhost", $vars);
+	
+	// Remove any existing vhost files
+	sys("sudo rm -f ".escapeshellarg($vhostFile));
+	sys("sudo rm -f ".escapeshellarg($vhostLink));
 	
 	sys("sudo mv ".escapeshellarg("{$dir}/.vhost")." ".escapeshellarg($vhostFile));
 	sys("sudo ln -s ".escapeshellarg($vhostFile)." ".escapeshellarg($vhostLink));
@@ -100,7 +108,8 @@ try {
 	$success = true;
 } finally {
 	if( !$success ) {
-		fwrite(STDERR, "Stuff went wrong.  Cleaning up.");
+		// TODO: destroy database
+		fwrite(STDERR, "Stuff went wrong.  Cleaning up.\n");
 		system("rm -rf ".escapeshellarg($dir));
 		system("sudo -n rm -f ".escapeshellarg($vhostFile));
 		system("sudo -n rm -f ".escapeshellarg($vhostLink));
