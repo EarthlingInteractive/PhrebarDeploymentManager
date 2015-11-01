@@ -39,7 +39,7 @@ class EarthIT_PhrebarDeploymentManager
 		return $config;
 	}
 	
-	protected $conig;
+	protected $config = null;
 	protected function getConfig($path=[]) {
 		if( $this->config === null ) $this->config = $this->loadConfig();
 		$config = $this->config;
