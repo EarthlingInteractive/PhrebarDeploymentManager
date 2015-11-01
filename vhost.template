@@ -1,6 +1,6 @@
 <VirtualHost *:80>
-    ServerAdmin {server-admin}
-    ServerName {server-name}
+    ServerAdmin {admin-email-address}
+    ServerName {hostname}
     
     DocumentRoot {docroot}
     <Directory {docroot}>
@@ -15,8 +15,8 @@
 #    SSLCertificateKeyFile /etc/apache2/ssl/ssl.key
 #    SetEnvIf User-Agent ".*MSIE.*" nokeepalive ssl-unclean-shutdown
 #     
-#    ServerAdmin {server-admin}
-#    ServerName {server-name}
+#    ServerAdmin {admin-email-address}
+#    ServerName {hostname}
 #    
 #    DocumentRoot {docroot}
 #    <Directory {docroot}>

@@ -2,28 +2,7 @@
 <?php
 
 error_reporting(E_ALL|E_STRICT);
-
-function sys($cmd) {
-	fwrite(STDERR, "$ $cmd\n");
-	system($cmd, $status);
-	if( $status ) throw new Exception("Shell command failed with status $status");
-}
-
-function rewriteFile( $in, $out, array $vars ) {
-	$source = file_get_contents($in);
-	foreach( $vars as $k=>$v ) {
-		$source = str_replace("{{$k}}", $v, $source);
-	}
-	if( file_put_contents($out, $source) === false ) {
-		throw new Exception("Failed to write $out");
-	}
-}
-
-$config = json_decode(file_get_contents('config.json'),true);
-if( $config === null ) {
-	fwrite(STDERR, "Failed to read config.json\n");
-	exit(1);
-}
+require __DIR__.'/PhrebarDeploymentManager.php';
 
 $deploymentNames = [];
 for( $i=1; $i<count($argv); ++$i ) {
@@ -37,12 +16,16 @@ for( $i=1; $i<count($argv); ++$i ) {
 	}
 }
 
+$DM = new EarthIT_PhrebarDeploymentManager(__DIR__);
+
+$errorCount = 0;
 foreach( $deploymentNames as $deploymentName ) {
-	// TODO: destroy database
-	$dir = "deployments/{$deploymentName}";
-	$vhostFile = "/etc/apache2/sites-available/{$deploymentName}.conf";
-	$vhostLink = "/etc/apache2/sites-enabled/001-{$deploymentName}.conf";
-	system("rm -rf ".escapeshellarg($dir));
-	system("sudo -n rm -f ".escapeshellarg($vhostFile));
-	system("sudo -n rm -f ".escapeshellarg($vhostLink));
+	try {
+		$DM->destroyDeployment(['name'=>$deploymentName]);
+	} catch( Exception $e ) {
+		fwrite(STDERR, "destroy-deployment: error deleting {$deploymentName}: ".$e->getMessage()."\n");
+		++$errorCount;
+	}
 }
+
+exit( $errorCount ? 1 : 0 );

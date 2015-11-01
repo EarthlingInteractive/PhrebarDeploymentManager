@@ -2,38 +2,24 @@
 <?php
 
 error_reporting(E_ALL|E_STRICT);
+require __DIR__.'/PhrebarDeploymentManager.php';
 
-function sys($cmd) {
-	fwrite(STDERR, "$ $cmd\n");
-	system($cmd, $status);
-	if( $status ) throw new Exception("Shell command failed with status $status");
-}
-
-function rewriteFile( $in, $out, array $vars ) {
-	$source = file_get_contents($in);
-	foreach( $vars as $k=>$v ) {
-		$source = str_replace("{{$k}}", $v, $source);
-	}
-	if( file_put_contents($out, $source) === false ) {
-		throw new Exception("Failed to write $out");
-	}
-}
-
-$config = json_decode(file_get_contents('config.json'),true);
-if( $config === null ) {
-	fwrite(STDERR, "Failed to read config.json\n");
-	exit(1);
-}
+$reinitializing = false;
 
 $nonFlagArgs = [];
 for( $i=1; $i<count($argv); ++$i ) {
 	$arg = $argv[$i];
-	if( $arg[0] != '-' ) {
-		$nonFlagArgs[] = $arg;
-	} else switch( $arg ) {
-		default:
+	switch( $arg ) {
+	case '-f':
+		$reinitializing = true;
+		break;
+	default:
+		if( $arg[0] != '-' ) {
+			$nonFlagArgs[] = $arg;
+		} else {
 			fwrite(STDERR, "Unrecognized argument: {$argv[$i]}\n");
 			exit(1);
+		}
 	}
 }
 
@@ -46,73 +32,21 @@ $deploymentName = $nonFlagArgs[0];
 $sourceRepo     = $nonFlagArgs[1];
 $sourceCommit   = $nonFlagArgs[2];
 
-$domainPostfix = $config['hostname-postfix'];
+$DM = new EarthIT_PhrebarDeploymentManager(__DIR__);
 
-$hostname = "{$deploymentName}{$domainPostfix}";
-$dir = getcwd()."/deployments/{$deploymentName}";
-$docroot = "{$dir}/www";
-$vhostFile = "/etc/apache2/sites-available/{$deploymentName}.conf";
-$vhostLink = "/etc/apache2/sites-enabled/001-{$deploymentName}.conf";
-$dbname = $deploymentName;
-$dbuser = $deploymentName;
-$dbpassword = $deploymentName;
+$deployment = $DM->fillDeploymentInfo([
+	'name'          => $deploymentName,
+	'source-repo'   => $sourceRepo,
+	'source-commit' => $sourceCommit
+]);
 
-$vars = [
-	'hostname' => $hostname,
-	'docroot' => $docroot,
-	'dbname' => $dbname,
-	'dbuser' => $dbuser,
-	'dbpassword' => $dbpassword,
-	'vhost-file' => $vhostFile,
-	'vhost-link' => $vhostLink,
-	'server-name' => $hostname,
-	'server-admin' => 'ei-ci-admin@mailinator.com',
-];
-
-if( file_exists($dir) ) {
-	fwrite(STDERR, "Deployment {$deploymentName} already exists.\n");
-	exit(1);
-}
-
-$success = false;
 try {
-	mkdir($dir, 0755, true);
-	$oldDir = getcwd();
-	chdir($dir);
-	try {
-		sys("git init");
-		sys("git remote add origin ".escapeshellarg($sourceRepo));
-		sys("git fetch --all");
-		sys("git reset --hard $sourceCommit");
-	} finally {
-		chdir($oldDir);
+	if( file_exists($deployment['directory']) and !$reinitializing ) {
+		throw new Exception("Deployment {$deploymentName} already exists.\n");
 	}
 	
-	rewriteFile('create-database.sql.template', "{$dir}/.create-database.sql", $vars);
-	sys("sudo -u postgres psql <{$dir}/.create-database.sql");
-	
-	rewriteFile('dbc.json.template', "{$dir}/config/dbc.json", $vars);
-	
-	sys("make -C ".escapeshellarg($dir));
-	
-	rewriteFile('vhost.template', "{$dir}/.vhost", $vars);
-	
-	// Remove any existing vhost files
-	sys("sudo rm -f ".escapeshellarg($vhostFile));
-	sys("sudo rm -f ".escapeshellarg($vhostLink));
-	
-	sys("sudo mv ".escapeshellarg("{$dir}/.vhost")." ".escapeshellarg($vhostFile));
-	sys("sudo ln -s ".escapeshellarg($vhostFile)." ".escapeshellarg($vhostLink));
-	sys("sudo apache2ctl restart");
-	
-	$success = true;
-} finally {
-	if( !$success ) {
-		// TODO: destroy database
-		fwrite(STDERR, "Stuff went wrong.  Cleaning up.\n");
-		system("rm -rf ".escapeshellarg($dir));
-		system("sudo -n rm -f ".escapeshellarg($vhostFile));
-		system("sudo -n rm -f ".escapeshellarg($vhostLink));
-		exit(1);
-	}
+	$DM->createDeployment($deployment);
+} catch( Exception $e ) {
+	fwrite(STDERR, "create-deployment: error: ".$e->getMessage()."\n");
+	exit(1);
 }
