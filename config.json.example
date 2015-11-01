@@ -1,0 +1,18 @@
+{
+   "hostname-postfix": ".ci.earthlinginteractive.com",
+   "deployment-root": "deployments",
+   "users": {
+      "postgres": {
+	 "username": "postgres",
+	 "home-dir": "/"
+      },
+      "deployment-owner": {
+	 "username": "ppdo",
+	 "home-dir": "/home/ppdo"
+      },
+      "apache-manager": {
+	 "username": "root",
+	 "home-dir": "/root"
+      }
+   }
+}
