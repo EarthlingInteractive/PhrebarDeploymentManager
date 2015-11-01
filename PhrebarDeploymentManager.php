@@ -127,7 +127,7 @@ class EarthIT_PhrebarDeploymentManager
 			$DOZ2->sys("git reset --hard ".escapeshellarg($deployment['source-commit']));
 			
 			$this->template("{$this->dmDir}/create-database.sql.template", "{$dir}/.create-database.sql", $deployment);
-			$PGZ->sys("sudo -u postgres psql <{$dir}/.create-database.sql");
+			$PGZ->sys("psql <{$dir}/.create-database.sql");
 			
 			$this->template("{$this->dmDir}/dbc.json.template", "{$dir}/config/dbc.json", $deployment);
 			$this->template("{$this->dmDir}/email-transport.json.template", "{$dir}/config/email-transport.json", $deployment);
@@ -141,9 +141,9 @@ class EarthIT_PhrebarDeploymentManager
 			$vhostFile = $deployment['vhost-file'];
 			$vhostLink = $deployment['vhost-link'];
 			
-			$AMZ->sys("mv ".escapeshellarg("{$dir}/.vhost")." ".escapeshellarg($vhostFile), self::SYS_SUDO);
-			$AMZ->sys("ln -s ".escapeshellarg($vhostFile)." ".escapeshellarg($vhostLink),   self::SYS_SUDO);
-			$AMZ->sys("apache2ctl restart",                                                 self::SYS_SUDO);
+			$AMZ->sys("mv ".escapeshellarg("{$dir}/.vhost")." ".escapeshellarg($vhostFile));
+			$AMZ->sys("ln -s ".escapeshellarg($vhostFile)." ".escapeshellarg($vhostLink));
+			$AMZ->sys("apache2ctl restart");
 			
 			$success = true;
 		} finally {
