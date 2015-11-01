@@ -1,5 +1,30 @@
 <?php
 
+class EarthIT_PhrebarDeploymentManager_Zoox {
+	protected $user;
+	protected $dir;
+	public function __construct( $user, $dir=null ) {
+		$this->user = $user;
+		$this->dir = $dir;
+	}
+	public function sys( $cmd, $dir=null ) {
+		$cmd = "sudo -u ".escapeshellarg($this->user)." sh -c ".escapeshellarg($cmd);
+
+		if( $dir === null ) $dir = $this->dir;
+		if( $dir !== null ) $cmd = "cd ".escapeshellarg($dir)." && ".$cmd;
+		
+		fwrite(STDERR, "$ $cmd\n");
+		system( $cmd, $status );
+		if( $status ) throw new Exception("Shell command failed with status $status: $cmd");
+	}
+	public function mkdirs( $dir ) {
+		$this->sys("mkdir -p ".escapeshellarg($dir));
+	}
+	public function chdir($dir) {
+		return new self( $this->user, $dir );
+	}
+}
+
 class EarthIT_PhrebarDeploymentManager
 {
 	protected $dmDir;
@@ -7,21 +32,37 @@ class EarthIT_PhrebarDeploymentManager
 		$this->dmDir = $dmDir;
 	}
 	
-	const SYS_IGNORE_ERRORS = 1;
-	const SYS_SUDO   = 2;
-	const SYS_SUDO_N = 6;
-	
-	protected function sys($cmd, $flags=0) {
-		if(  ($flags & self::SYS_SUDO_N) === self::SYS_SUDO_N ) $cmd = "sudo -n $cmd";
-		else if( ($flags & self::SYS_SUDO) === self::SYS_SUDO ) $cmd = "sudo $cmd";
-		fwrite(STDERR, "$ $cmd\n");
-		system($cmd, $status);
-		if( $status and !($flags & self::SYS_IGNORE_ERRORS) ) {
-			throw new Exception("Shell command failed with status $status: $cmd");
-		}
+	public function loadConfig($file=null) {
+		if( $file === null ) $file = "{$this->dmDir}/config.json";
+		$config = json_decode(file_get_contents($file),true);
+		if( $config === null ) throw new Exception("Failed to load config from $file");
+		return $config;
 	}
 	
-	protected static function template($infile, $outfile, array $vars) {
+	protected $conig;
+	protected function getConfig($path=[]) {
+		if( $this->config === null ) $this->config = $this->loadConfig();
+		$config = $this->config;
+		if( is_string($path) ) $path = explode('/', $path);
+		foreach( $path as $pp ) {
+			if( !isset($config[$pp]) ) {
+				throw new Exception("Config entry '$pp' not present");
+			}
+			$config = $config[$pp];
+		}
+		return $config;
+	}
+	
+	protected $zooxen = [];
+	protected function zoox($username) {
+		if( !isset($this->zooxen[$username]) ) {
+			$user = $this->getConfig(['users',$username]);
+			$this->zooxen[$username] = new EarthIT_PhrebarDeploymentManager_Zoox($user['username']);
+		}
+		return $this->zooxen[$username];
+	}
+	
+	protected static function template($infile, $outfile, array $vars, $chown) {
 		$source = file_get_contents($infile);
 		if( $source === false ) {
 			throw new Exception("Failed to read $infile");
@@ -32,13 +73,6 @@ class EarthIT_PhrebarDeploymentManager
 		if( file_put_contents($outfile, $source) === false ) {
 			throw new Exception("Failed to write $outfile");
 		}
-	}
-	
-	public function loadConfig($file=null) {
-		if( $file === null ) $file = "{$this->dmDir}/config.json";
-		$config = json_decode(file_get_contents($file),true);
-		if( $config === null ) throw new Exception("Failed to load config from $file");
-		return $config;
 	}
 	
 	public function defaultDeploymentInfo(array $deployment) {
@@ -76,31 +110,29 @@ class EarthIT_PhrebarDeploymentManager
 	
 	public function createDeployment(array $deployment) {
 		$deployment = $this->fillDeploymentInfo($deployment);
+		$DOZ = $this->zoox('deployment-owner');
+		$AMZ = $this->zoox('apache-manager');
+		$PGZ = $this->zoox('postgres');
 		$success = false;
 		try {
 			$this->destroyDeployment($deployment, false);
 
 			$dir = $deployment['directory'];
 			
-			mkdir($dir, 0755, true);
-			$oldDir = getcwd();
-			chdir($dir);
-			try {
-				$this->sys("git init");
-				$this->sys("git remote add origin ".escapeshellarg($deployment['source-repo']));
-				$this->sys("git fetch --all");
-				$this->sys("git reset --hard ".escapeshellarg($deployment['source-commit']));
-			} finally {
-				chdir($oldDir);
-			}
+			$DOZ->mkdirs($dir);
+			$DOZ2 = $DOZ->chdir($dir);
+			$DOZ2->sys("git init");
+			$DOZ2->sys("git remote add origin ".escapeshellarg($deployment['source-repo']));
+			$DOZ2->sys("git fetch --all");
+			$DOZ2->sys("git reset --hard ".escapeshellarg($deployment['source-commit']));
 			
 			$this->template("{$this->dmDir}/create-database.sql.template", "{$dir}/.create-database.sql", $deployment);
-			$this->sys("sudo -u postgres psql <{$dir}/.create-database.sql");
+			$PGZ->sys("sudo -u postgres psql <{$dir}/.create-database.sql");
 			
 			$this->template("{$this->dmDir}/dbc.json.template", "{$dir}/config/dbc.json", $deployment);
 			$this->template("{$this->dmDir}/email-transport.json.template", "{$dir}/config/email-transport.json", $deployment);
 			
-			$this->sys("make -C ".escapeshellarg($dir)." redeploy");
+			$DOZ->sys("make -C ".escapeshellarg($dir)." redeploy");
 			
 			$this->template("{$this->dmDir}/vhost.template", "{$dir}/.vhost", $deployment);
 			
@@ -109,9 +141,9 @@ class EarthIT_PhrebarDeploymentManager
 			$vhostFile = $deployment['vhost-file'];
 			$vhostLink = $deployment['vhost-link'];
 			
-			$this->sys("mv ".escapeshellarg("{$dir}/.vhost")." ".escapeshellarg($vhostFile), self::SYS_SUDO);
-			$this->sys("ln -s ".escapeshellarg($vhostFile)." ".escapeshellarg($vhostLink),   self::SYS_SUDO);
-			$this->sys("apache2ctl restart",                                                 self::SYS_SUDO);
+			$AMZ->sys("mv ".escapeshellarg("{$dir}/.vhost")." ".escapeshellarg($vhostFile), self::SYS_SUDO);
+			$AMZ->sys("ln -s ".escapeshellarg($vhostFile)." ".escapeshellarg($vhostLink),   self::SYS_SUDO);
+			$AMZ->sys("apache2ctl restart",                                                 self::SYS_SUDO);
 			
 			$success = true;
 		} finally {
@@ -125,11 +157,13 @@ class EarthIT_PhrebarDeploymentManager
 	public function destroyDeployment(array $deployment, $ignoreErrors=false) {
 		$deployment = $this->fillDeploymentInfo($deployment);
 		$dir = $deployment['directory'];
-		$nsf = $ignoreErrors ? self::SYS_IGNORE_ERRORS : 0;
-		$sf  = $ignoreErrors ? self::SYS_SUDO_N : self::SYS_SUDO;
-		$this->sys("rm -rf ".escapeshellarg($dir)     , $nsf);
+		$DOZ = $this->zoox('deployment-owner');
+		$AMZ = $this->zoox('apache-manager');
+		$PGZ = $this->zoox('postgres');
+		$DOZ->sys("rm -rf ".escapeshellarg($dir));
 		foreach( ['vhost-file','vhost-link'] as $k ) {
-			$this->sys("rm -f ".escapeshellarg($deployment[$k]), $sf );
+			$AMZ->sys("rm -f ".escapeshellarg($deployment[$k]));
 		}
+		$PGZ->sys('psql -c '.escapeshellarg('DROP DATABASE IF EXISTS "'.$deployment['dbname'].'"'));
 	}
 }
