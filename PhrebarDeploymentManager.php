@@ -81,7 +81,7 @@ class EarthIT_PhrebarDeploymentManager
 		$deploymentName = $deployment['name'];
 		$domainPostfix = $config['hostname-postfix'];
 		
-		$dir = "{$this->dmDir}/deployments/{$deploymentName}";
+		$dir = $this->getConfig('deployment-root').'/'.$deploymentName;
 		$docroot = "{$dir}/www";
 		$hostname = "{$deploymentName}{$domainPostfix}";
 		$vhostFile = "/etc/apache2/sites-available/{$deploymentName}.conf";
