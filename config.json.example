@@ -1,6 +1,6 @@
 {
    "hostname-postfix": ".ci.earthlinginteractive.com",
-   "deployment-root": "deployments",
+   "deployment-root": "/home/ppdo/deployments",
    "sendgrid-password": "sendgrid password goes here",
    "email-recipient-override": "{name}-dev@mailinator.com",
    "users": {
