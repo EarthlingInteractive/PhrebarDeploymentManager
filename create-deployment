@@ -33,6 +33,12 @@ $sourceRepo     = $nonFlagArgs[1];
 $sourceCommit   = $nonFlagArgs[2];
 
 $DM = new EarthIT_PhrebarDeploymentManager(__DIR__);
+try {
+	$DM->validate();
+} catch( EarthIT_PhrebarDeploymentManager_EnvironmentException $e ) {
+	fwrite(STDERR, $e->getMessage()."\n");
+	exit(1);
+}
 
 $deployment = $DM->fillDeploymentInfo([
 	'name'          => $deploymentName,

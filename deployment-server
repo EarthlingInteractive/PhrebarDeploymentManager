@@ -1,0 +1,68 @@
+#!/usr/bin/php
+<?php
+
+class EarthIT_PhrebarDeploymentServer {
+	protected $DM;
+	public function __construct( EarthIT_PhrebarDeploymentManager $DM ) {
+		$this->DM = $DM;
+	}
+	
+	public function doCommand( $cmd ) {
+		if( is_string($cmd) ) {
+			$cmd = trim($cmd);
+			if( $cmd === '' or $cmd[0] === '#' ) return;
+			$cmd = explode(' ',$cmd);
+		}
+		if( !is_array($cmd) ) throw new Exception("\$cmd must be a string or an array");
+		if( count($cmd) === 0 ) return;
+		
+		switch( $cmd[0] ) {
+		case 'create-deployment':
+			if( count($cmd) < 4 ) {
+				throw new Exception("'create-deployment' requires 3 arguments (deployment name, repo, commit)");
+			}
+			$this->DM->createDeployment([
+				'name' => $cmd[1],
+				'source-repo' => $cmd[2],
+				'source-commit' => $cmd[3]
+			]);
+			break;
+		case 'destroy-deployment':
+			if( count($cmd) < 2 ) {
+				throw new Exception("'destroy-deployment' requires an argument (deployment name)");
+			}
+			$this->DM->destroyDeployment([
+				'name' => $cmd[1]
+			]);
+			break;
+		default:
+			throw new Exception("Unrecognized command '{$cmd[0]}'");
+		}
+	}
+}
+
+error_reporting(E_ALL|E_STRICT);
+require __DIR__.'/PhrebarDeploymentManager.php';
+
+$DM = new EarthIT_PhrebarDeploymentManager(__DIR__);
+try {
+	$DM->validate();
+} catch( EarthIT_PhrebarDeploymentManager_EnvironmentException $e ) {
+	fwrite(STDERR, $e->getMessage()."\n");
+	exit(1);
+}
+
+$DS = new EarthIT_PhrebarDeploymentServer($DM);
+$hadErrors = false;
+
+while( ($line = fgets(STDIN,1024)) !== false ) {
+	$line = trim($line);
+	try {
+		$DS->doCommand($line);
+	} catch( Exception $e ) {
+		fwrite(STDERR, "Error running command: $line:\n".$e->getMessage()."\n");
+		$hadErrors = true;
+	}
+}
+
+if( $hadErrors ) exit(1);

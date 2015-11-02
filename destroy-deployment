@@ -17,6 +17,12 @@ for( $i=1; $i<count($argv); ++$i ) {
 }
 
 $DM = new EarthIT_PhrebarDeploymentManager(__DIR__);
+try {
+	$DM->validate();
+} catch( EarthIT_PhrebarDeploymentManager_EnvironmentException $e ) {
+	fwrite(STDERR, $e->getMessage()."\n");
+	exit(1);
+}
 
 $errorCount = 0;
 foreach( $deploymentNames as $deploymentName ) {

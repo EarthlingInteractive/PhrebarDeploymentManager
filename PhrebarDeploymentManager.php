@@ -1,5 +1,7 @@
 <?php
 
+class EarthIT_PhrebarDeploymentManager_EnvironmentException extends Exception { }
+
 class EarthIT_PhrebarDeploymentManager_Zoox {
 	protected $user;
 	protected $dir;
@@ -32,21 +34,67 @@ class EarthIT_PhrebarDeploymentManager
 		$this->dmDir = $dmDir;
 	}
 	
+	/**
+	 * Make sure the environment's set up
+	 */
+	public function validate() {
+		$errors = [];
+		
+		$requiredFiles = [
+			"{$this->dmDir}/config.json",
+			"{$this->dmDir}/email-transport.json.template",
+			"{$this->dmDir}/create-database.sql.template",
+			"{$this->dmDir}/dbc.json.template",
+		];
+		$missingFiles = [];
+		foreach( $requiredFiles as $f ) {
+			if( !file_exists($f) ) $missingFiles[] = $f;
+		}
+		if( $missingFiles ) {
+			$errors[] = "The following required files are missing:\n- ".implode("\n- ", $missingFiles);
+		}
+		
+		$requiredConfigVars = [
+			"hostname-postfix",
+			"deployment-root",
+			"users",
+			"users/postgres/username",
+			"users/deployment-owner/username",
+			"users/apache-manager/username"
+		];
+		$missingConfigVars = [];
+		foreach( $requiredConfigVars as $var ) {
+			if( $this->getConfig($var,'__UNS') === '__UNS' ) {
+				$missingConfigVars[] = $var;
+			}
+		}
+		if( $missingConfigVars ) {
+			$errors[] = "The following required config entries are missing:\n- ".implode("\n- ",$missingConfigVars);
+		}
+		
+		if( $errors ) {
+			throw new EarthIT_PhrebarDeploymentManager_EnvironmentException(implode("\n\n", $errors));
+		}
+	}
+	
 	public function loadConfig($file=null) {
 		if( $file === null ) $file = "{$this->dmDir}/config.json";
+		if( !file_exists($file) ) return null;
 		$config = json_decode(file_get_contents($file),true);
 		if( $config === null ) throw new Exception("Failed to load config from $file");
 		return $config;
 	}
 	
 	protected $config = null;
-	protected function getConfig($path=[]) {
+	protected function getConfig($path=[], $default='__ERRIR') {
 		if( $this->config === null ) $this->config = $this->loadConfig();
 		$config = $this->config;
 		if( is_string($path) ) $path = explode('/', $path);
 		foreach( $path as $pp ) {
 			if( !isset($config[$pp]) ) {
-				throw new Exception("Config entry '$pp' not present");
+				if( $default === '__ERRIR' )
+					throw new Exception("Config entry '$pp' not present");
+				else return $default;
 			}
 			$config = $config[$pp];
 		}
