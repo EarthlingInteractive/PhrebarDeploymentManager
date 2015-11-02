@@ -222,7 +222,7 @@ class EarthIT_PhrebarDeploymentManager
 			$DOZ2->sys("git reset --hard ".escapeshellarg($deployment['source-commit']));
 			
 			$this->template("{$this->dmDir}/create-database.sql.template", "{$dir}/.create-database.sql", $deployment);
-			$PGZ->sys("psql <{$dir}/.create-database.sql");
+			$PGZ->sys("psql -v ON_ERROR_STOP=1 <{$dir}/.create-database.sql");
 			
 			$this->template("{$this->dmDir}/dbc.json.template", "{$dir}/config/dbc.json", $deployment);
 			$this->template("{$this->dmDir}/email-transport.json.template", "{$dir}/config/email-transport.json", $deployment);
@@ -259,6 +259,6 @@ class EarthIT_PhrebarDeploymentManager
 		foreach( ['vhost-file','vhost-link'] as $k ) {
 			$AMZ->sys("rm -f ".escapeshellarg($deployment[$k]));
 		}
-		$PGZ->sys('psql -c '.escapeshellarg('DROP DATABASE IF EXISTS "'.$deployment['dbname'].'"'));
+		$PGZ->sys('psql -v ON_ERROR_STOP=1 -c '.escapeshellarg('DROP DATABASE IF EXISTS "'.$deployment['dbname'].'"'));
 	}
 }
