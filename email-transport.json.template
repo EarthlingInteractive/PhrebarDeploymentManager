@@ -1,0 +1,9 @@
+{
+   "type": "SMTP",
+   "username": "scaleablemailbasic",
+   "password": "{sendgrid-password}",
+   "host": "smtp.sendgrid.net",
+   "port": 587,
+   "encryption": "TLS",
+   "recipient-override": "rad-template-project@mailinator.com"
+}
