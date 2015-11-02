@@ -60,7 +60,9 @@ class EarthIT_PhrebarDeploymentManager
 			"users",
 			"users/postgres/username",
 			"users/deployment-owner/username",
-			"users/apache-manager/username"
+			"users/apache-manager/username",
+			"sendgrid-password",
+			"email-recipient-override",
 		];
 		$missingConfigVars = [];
 		foreach( $requiredConfigVars as $var ) {
@@ -86,7 +88,7 @@ class EarthIT_PhrebarDeploymentManager
 	}
 	
 	protected $config = null;
-	protected function getConfig($path=[], $default='__ERRIR') {
+	public function getConfig($path=[], $default='__ERRIR') {
 		if( $this->config === null ) $this->config = $this->loadConfig();
 		$config = $this->config;
 		if( is_string($path) ) $path = explode('/', $path);
@@ -101,6 +103,16 @@ class EarthIT_PhrebarDeploymentManager
 		return $config;
 	}
 	
+	public function setConfig($path,$v) {
+		if( is_string($path) ) $path = explode('/', $path);
+		$this->getConfig();
+		$config =& $this->config;
+		foreach( $path as $pp ) {
+			$config =& $config[$pp];
+		}
+		$config = $v;
+	}
+	
 	protected $zooxen = [];
 	protected function zoox($username) {
 		if( !isset($this->zooxen[$username]) ) {
@@ -110,7 +122,7 @@ class EarthIT_PhrebarDeploymentManager
 		return $this->zooxen[$username];
 	}
 	
-	protected static function template($infile, $outfile, array $vars, $chown) {
+	protected static function template($infile, $outfile, array $vars) {
 		$source = file_get_contents($infile);
 		if( $source === false ) {
 			throw new Exception("Failed to read $infile");
@@ -124,10 +136,8 @@ class EarthIT_PhrebarDeploymentManager
 	}
 	
 	public function defaultDeploymentInfo(array $deployment) {
-		$config = $this->loadConfig();
-		
 		$deploymentName = $deployment['name'];
-		$domainPostfix = $config['hostname-postfix'];
+		$domainPostfix = $this->getConfig('hostname-postfix');
 		
 		$dir = $this->getConfig('deployment-root').'/'.$deploymentName;
 		$docroot = "{$dir}/www";
@@ -149,6 +159,7 @@ class EarthIT_PhrebarDeploymentManager
 			'vhost-file' => $vhostFile,
 			'vhost-link' => $vhostLink,
 			'admin-email-address' => 'ei-ci-admin@mailinator.com',
+			'sendgrid-password' => $this->getConfig('sendgrid-password'),
 		];
 	}
 	

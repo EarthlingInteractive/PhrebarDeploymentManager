@@ -1,6 +1,8 @@
 {
    "hostname-postfix": ".ci.earthlinginteractive.com",
    "deployment-root": "deployments",
+   "sendgrid-password": "sendgrid password goes here",
+   "email-recipient-override": "{name}-dev@mailinator.com",
    "users": {
       "postgres": {
 	 "username": "postgres",

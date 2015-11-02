@@ -21,11 +21,13 @@ class EarthIT_PhrebarDeploymentServer {
 			if( count($cmd) < 4 ) {
 				throw new Exception("'create-deployment' requires 3 arguments (deployment name, repo, commit)");
 			}
-			$this->DM->createDeployment([
+			$deployment = $this->DM->fillDeploymentInfo([
 				'name' => $cmd[1],
 				'source-repo' => $cmd[2],
 				'source-commit' => $cmd[3]
 			]);
+			$this->DM->createDeployment($deployment);
+			echo "# created {$cmd[1]}; available at {$deployment['hostname']}\n";
 			break;
 		case 'destroy-deployment':
 			if( count($cmd) < 2 ) {
@@ -34,6 +36,7 @@ class EarthIT_PhrebarDeploymentServer {
 			$this->DM->destroyDeployment([
 				'name' => $cmd[1]
 			]);
+			echo "# destroyed {$cmd[1]}\n";
 			break;
 		default:
 			throw new Exception("Unrecognized command '{$cmd[0]}'");
@@ -44,7 +47,25 @@ class EarthIT_PhrebarDeploymentServer {
 error_reporting(E_ALL|E_STRICT);
 require __DIR__.'/PhrebarDeploymentManager.php';
 
+$configOverrides = [];
+for( $i=1; $i<count($argv); ++$i ) {
+	$arg = $argv[$i];
+	switch( $arg ) {
+	case '-c':
+		$kv = $argv[++$i];
+		list($k,$v) = explode('=',$kv);
+		$configOverrides[$k] = $v;
+		break;
+	default:
+		fwrite(STDERR, "Unrecognized argument: {$arg}\n");
+		exit(1);
+	}
+}
+
 $DM = new EarthIT_PhrebarDeploymentManager(__DIR__);
+foreach( $configOverrides as $k=>$v ) {
+	$DM->setConfig($k, $v);
+}
 try {
 	$DM->validate();
 } catch( EarthIT_PhrebarDeploymentManager_EnvironmentException $e ) {
@@ -60,6 +81,7 @@ while( ($line = fgets(STDIN,1024)) !== false ) {
 	try {
 		$DS->doCommand($line);
 	} catch( Exception $e ) {
+		echo "# error\n";
 		fwrite(STDERR, "Error running command: $line:\n".$e->getMessage()."\n");
 		$hadErrors = true;
 	}
