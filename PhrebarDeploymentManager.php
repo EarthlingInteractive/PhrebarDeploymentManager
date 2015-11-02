@@ -207,6 +207,7 @@ class EarthIT_PhrebarDeploymentManager
 		$DOZ = $this->zoox('deployment-owner');
 		$AMZ = $this->zoox('apache-manager');
 		$PGZ = $this->zoox('postgres');
+		$doHome = $this->getConfig('users/deployment-owner/home-dir');
 		$success = false;
 		try {
 			$this->destroyDeployment($deployment, false);
@@ -226,7 +227,7 @@ class EarthIT_PhrebarDeploymentManager
 			$this->template("{$this->dmDir}/dbc.json.template", "{$dir}/config/dbc.json", $deployment);
 			$this->template("{$this->dmDir}/email-transport.json.template", "{$dir}/config/email-transport.json", $deployment);
 			
-			$DOZ->sys("make -C ".escapeshellarg($dir)." redeploy");
+			$DOZ->sys("COMPOSER_HOME=".escapeshellarg($doHome)." make -C ".escapeshellarg($dir)." redeploy");
 			
 			$this->template("{$this->dmDir}/vhost.template", "{$dir}/.vhost", $deployment);
 			
