@@ -78,6 +78,41 @@ class EarthIT_PhrebarDeploymentManager
 			throw new EarthIT_PhrebarDeploymentManager_EnvironmentException(implode("\n\n", $errors));
 		}
 	}
+
+	public function validateForDestroy() {
+		$errors = [];
+		
+		$requiredFiles = [
+			"{$this->dmDir}/config.json"
+		];
+		$missingFiles = [];
+		foreach( $requiredFiles as $f ) {
+			if( !file_exists($f) ) $missingFiles[] = $f;
+		}
+		if( $missingFiles ) {
+			$errors[] = "The following required files are missing:\n- ".implode("\n- ", $missingFiles);
+		}
+		
+		$requiredConfigVars = [
+			"deployment-root",
+			"users/postgres/username",
+			"users/deployment-owner/username",
+			"users/apache-manager/username",
+		];
+		$missingConfigVars = [];
+		foreach( $requiredConfigVars as $var ) {
+			if( $this->getConfig($var,'__UNS') === '__UNS' ) {
+				$missingConfigVars[] = $var;
+			}
+		}
+		if( $missingConfigVars ) {
+			$errors[] = "The following required config entries are missing:\n- ".implode("\n- ",$missingConfigVars);
+		}
+		
+		if( $errors ) {
+			throw new EarthIT_PhrebarDeploymentManager_EnvironmentException(implode("\n\n", $errors));
+		}
+	}
 	
 	public function loadConfig($file=null) {
 		if( $file === null ) $file = "{$this->dmDir}/config.json";
@@ -159,7 +194,7 @@ class EarthIT_PhrebarDeploymentManager
 			'vhost-file' => $vhostFile,
 			'vhost-link' => $vhostLink,
 			'admin-email-address' => 'ei-ci-admin@mailinator.com',
-			'sendgrid-password' => $this->getConfig('sendgrid-password'),
+			'sendgrid-password' => $this->getConfig('sendgrid-password', null),
 		];
 	}
 	
