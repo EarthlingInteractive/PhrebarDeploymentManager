@@ -6,10 +6,16 @@ require __DIR__.'/PhrebarDeploymentManager.php';
 
 $reinitializing = false;
 
+$configOverrides = [];
 $nonFlagArgs = [];
 for( $i=1; $i<count($argv); ++$i ) {
 	$arg = $argv[$i];
 	switch( $arg ) {
+	case '-c':
+		$kv = $argv[++$i];
+		list($k,$v) = explode('=',$kv);
+		$configOverrides[$k] = $v;
+		break;
 	case '-f':
 		$reinitializing = true;
 		break;
@@ -33,6 +39,9 @@ $sourceRepo     = $nonFlagArgs[1];
 $sourceCommit   = $nonFlagArgs[2];
 
 $DM = new EarthIT_PhrebarDeploymentManager(__DIR__);
+foreach( $configOverrides as $k=>$v ) {
+	$DM->setConfig($k, $v);
+}
 try {
 	$DM->validate();
 } catch( EarthIT_PhrebarDeploymentManager_EnvironmentException $e ) {
