@@ -76,6 +76,8 @@ try {
 $DS = new EarthIT_PhrebarDeploymentServer($DM);
 $hadErrors = false;
 
+echo "# deployment-server: Welcome!\n";
+
 while( ($line = fgets(STDIN,1024)) !== false ) {
 	$line = trim($line);
 	try {
@@ -87,4 +89,8 @@ while( ($line = fgets(STDIN,1024)) !== false ) {
 	}
 }
 
-if( $hadErrors ) exit(1);
+if( $hadErrors ) {
+	exit(1);
+} else {
+	echo "# deployment-server: Quittin'\n";
+}
